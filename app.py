@@ -1,54 +1,64 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import random
 from datetime import datetime
 
-
-def generate_unique_quiz_link():
-    # Generate a secure, random token
-    return secrets.token_urlsafe(10)
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///quiz.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-login_manager = LoginManager()
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+login_manager = LoginManager(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 REGISTRATION_KEY = "YourSecretKeyHere"
 
+def generate_unique_quiz_link():
+    return secrets.token_urlsafe(10)
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(10), nullable=False, default='admin')  # Default role
+    role = db.Column(db.String(10), nullable=False, default='user')  # Added role attribute
+    results = db.relationship('Result', backref='user', lazy=True)
 
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    question_text = db.Column(db.String(200), nullable=False)
-    # Assuming options and correct answer fields are handled within or related to this model
-    quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)  # Link to the Quiz model
+    text = db.Column(db.String(200), nullable=False)
+    correct_answer = db.Column(db.String(200), nullable=False)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
+    options = db.relationship('Option', backref='question', lazy=True)
+
+class Option(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.String(200), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False)
 
 class Quiz(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
-    time_limit = db.Column(db.Integer, nullable=True)  # Notice the field name is time_limit
-    link = db.Column(db.String(255), unique=True, nullable=False)
-    num_questions_display = db.Column(db.Integer, nullable=False, default=10)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
-    questions = db.relationship('Question', backref='quiz', lazy='dynamic')
+    time_limit = db.Column(db.Integer, nullable=True)  # Time limit in minutes
+    num_questions_display = db.Column(db.Integer, nullable=False)
+    link = db.Column(db.String(255), unique=True, nullable=False, default=generate_unique_quiz_link)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    questions = db.relationship('Question', backref='quiz', lazy=True)
+    results = db.relationship('Result', backref='quiz', lazy=True)
 
-
-@app.before_first_request
-def create_tables():
-    db.create_all()
+class Result(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    score = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -57,16 +67,17 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username')
+        password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('admin_dashboard')) if user.role == 'admin' else redirect(url_for('user_dashboard'))
+            return redirect(url_for('dashboard'))  # Redirect to a protected page
         else:
-            flash('Invalid username or password')
-    return render_template('login.html')
+            flash('Invalid username or password.')
+    
+    return render_template('login.html')  # Render the login template
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -99,6 +110,11 @@ def admin_dashboard():
     if current_user.role != 'admin':
         return 'Access Denied', 403
     return render_template('admin_dashboard.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html')
 
 @app.route('/logout')
 @login_required
@@ -151,6 +167,9 @@ def take_quiz(quiz_link):
     
     # Render a template to display these questions
     return render_template('take_quiz.html', questions=displayed_questions, quiz=quiz)
+
+with app.app_context():
+    db.create_all()  # Creates the tables if they don't exist yet
 
 if __name__ == '__main__':
     app.run(debug=True)
