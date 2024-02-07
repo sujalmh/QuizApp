@@ -6,10 +6,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import random
 from datetime import datetime
+import re
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///quiz.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///C:\\Projects\\Quiz\\quiz.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['ADMIN_REGISTRATION_KEY'] = 'admin_key'
 
@@ -26,9 +27,11 @@ def generate_unique_quiz_link():
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    usn = db.Column(db.String(10), unique=True, nullable=True)  # Allow null for admins
     username = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(10), nullable=False, default='user')  # Added role attribute
+    role = db.Column(db.String(10), nullable=False, default='user')
     results = db.relationship('Result', backref='user', lazy=True)
 
 class Question(db.Model):
@@ -66,6 +69,8 @@ def load_user(user_id):
 
 @app.route('/')
 def home():
+    print("Hllo")
+    print(app.config['SQLALCHEMY_DATABASE_URI'])
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -86,15 +91,11 @@ def login():
     
     return render_template('login.html')  # Render the login template
 
-from flask import request, redirect, url_for, flash, render_template
-from flask_login import login_required, current_user
-
 @app.route('/admin/register', methods=['GET', 'POST'])
 def admin_register():
-    # This example does not include login or role checks for simplicity
-    # Ensure your actual application properly secures this route
 
     if request.method == 'POST':
+        name = request.form['name']
         username = request.form['username']
         password = request.form['password']
         registration_key = request.form.get('registration_key')
@@ -103,30 +104,22 @@ def admin_register():
             flash('Invalid registration key.')
             return redirect(url_for('admin_register'))
 
-        # Check if an admin account already exists
-        admin_exists = User.query.filter_by(role='admin').first()
-        if admin_exists:
-            flash('An admin account already exists. Cannot register another admin.')
-            return redirect(url_for('admin_register'))
-
         user_exists = User.query.filter_by(username=username).first()
         if user_exists:
             flash('Username already exists.')
             return redirect(url_for('admin_register'))
 
         hashed_password = generate_password_hash(password)
-        # Create the new admin user with the role explicitly set to 'admin'
-        new_admin = User(username=username, password=hashed_password, role='admin')
+        new_admin = User(name=name, username=username, password=hashed_password, role='admin', usn=None)  # Explicitly set usn to None for admins
         db.session.add(new_admin)
         db.session.commit()
-
-        # Optionally, you might want to log in the new admin automatically
-        # login_user(new_admin)
+        login_user(new_admin)
 
         flash('New admin created successfully.')
         return redirect(url_for('admin_dashboard'))
 
     return render_template('admin_register.html')
+
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -148,28 +141,38 @@ def admin_login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        name = request.form['name']
+        usn = request.form.get('usn').upper()  # Ensure USN is uppercase
         username = request.form['username']
         password = request.form['password']
         
-        # Check if the username already exists
-        user_exists = User.query.filter_by(username=username).first()
+        # Validate USN format
+        if not re.match(r"4MT\d\d[A-Z][A-Z]\d\d\d", usn):
+            flash('USN must be in the format 4MT**$$***.')
+            return render_template('register.html')
+        
+        # Check if the USN already exists
+        user_exists = User.query.filter_by(usn=usn).first()
         if user_exists:
+            flash('USN already exists')
+            return render_template('register.html')
+        username_exists = User.query.filter_by(username=username).first()
+        if username_exists:
             flash('Username already exists')
             return render_template('register.html')
-
-        # Hash the password for storage
         hashed_password = generate_password_hash(password)
-        
-        # Create a new User instance with the role set to 'user' by default
-        new_user = User(username=username, password=hashed_password, role='user')
-        db.session.add(new_user)
-        db.session.commit()
+        new_user = User(name=name, usn=usn, username=username, password=hashed_password)
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Registration successful!')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Registration failed. Error: {}'.format(str(e)))
 
-        # Automatically log in the new user
-        login_user(new_user)
-
-        # Redirect to the dashboard after successful registration
-        return redirect(url_for('dashboard'))
+        flash('Registration successful!')
+        return redirect(url_for('login'))
 
     return render_template('register.html')
 
