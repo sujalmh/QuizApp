@@ -1,9 +1,12 @@
+<!-- templates/admin_login.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Login</title>
+    <meta charset="UTF-8">
+    <title>Admin Login</title>
 </head>
 <body>
+    <h1>Admin Login</h1>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -12,11 +15,9 @@
         {% endif %}
     {% endwith %}
     <form method="post">
-        Username: <input type="text" name="username"><br>
-        Password: <input type="password" name="password"><br>
+        Username: <input type="text" name="username" required><br>
+        Password: <input type="password" name="password" required><br>
         <input type="submit" value="Login">
     </form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
-
 </body>
 </html>

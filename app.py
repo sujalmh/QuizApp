@@ -127,7 +127,24 @@ def admin_register():
         return redirect(url_for('admin_dashboard'))
 
     return render_template('admin_register.html')
-    
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        # Ensure that only users with admin role can login through this route
+        admin_user = User.query.filter_by(username=username, role='admin').first()
+
+        if admin_user and check_password_hash(admin_user.password, password):
+            login_user(admin_user)
+            flash('You have been successfully logged in as admin.', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Invalid username or password.', 'error')
+
+    return render_template('admin_login.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -160,8 +177,8 @@ def register():
 @login_required
 def admin_dashboard():
     if current_user.role != 'admin':
-        flash('Access denied: Admins only.')
-        return redirect(url_for('dashboard'))  # Redirect to a general user dashboard or login page
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('login'))  # Redirect to a general user login page or homepage
     return render_template('admin_dashboard.html')
 
 @app.route('/dashboard')
@@ -174,6 +191,17 @@ def dashboard():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/admin/logout')
+@login_required
+def admin_logout():
+    if current_user.role == 'admin':
+        logout_user()
+        flash('You have been logged out.', 'success')
+        return redirect(url_for('admin_login'))  # Redirect specifically to the admin login page
+    else:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('login'))  # Fallback for non-admins trying to access the admin logout
 
 @app.route('/add_quiz', methods=['GET', 'POST'])
 @login_required
