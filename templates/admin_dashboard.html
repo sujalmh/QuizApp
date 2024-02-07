@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+</head>
+<body>
+    <h1>Welcome to the Admin Dashboard, {{ current_user.username }}!</h1>
+    <div>
+        <a href="{{ url_for('add_quiz') }}">Create Quiz</a>
+        <a href="{{ url_for('view_results') }}">View Results</a>
+    </div>
+    <div>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+</body>
+</html>

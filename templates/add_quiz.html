@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create a Quiz</title>
+    <script>
+        function addQuestion() {
+            const questionsContainer = document.getElementById('questions-container');
+            const questionIndex = questionsContainer.children.length;
+            const questionHTML = `
+                <div class="question">
+                    <label>Question: <input type="text" name="questions[${questionIndex}][text]"></label>
+                    <label>Points: <input type="number" name="questions[${questionIndex}][points]" min="1"></label>
+                    <div class="options-container">
+                        <!-- Options will be added here -->
+                    </div>
+                    <button type="button" onclick="addOption(this, ${questionIndex})">Add Option</button>
+                    <label>Correct Answer: 
+                        <select name="questions[${questionIndex}][correct_answer]">
+                            <!-- Correct answer options will be added here -->
+                        </select>
+                    </label>
+                </div>
+            `;
+            questionsContainer.insertAdjacentHTML('beforeend', questionHTML);
+        }
+
+        function addOption(button, questionIndex) {
+            const optionsContainer = button.previousElementSibling;
+            const optionIndex = optionsContainer.children.length;
+            const optionHTML = `
+                <div class="option">
+                    <label>Option ${optionIndex + 1}: <input type="text" name="questions[${questionIndex}][options][${optionIndex}]" onchange="updateCorrectAnswerOptions(this, ${questionIndex})"></label>
+                </div>
+            `;
+            optionsContainer.insertAdjacentHTML('beforeend', optionHTML);
+            updateCorrectAnswerOptions(null, questionIndex);
+        }
+
+        function updateCorrectAnswerOptions(input, questionIndex) {
+            const questionDiv = document.getElementById('questions-container').children[questionIndex];
+            const optionsContainer = questionDiv.querySelector('.options-container');
+            const correctAnswerSelect = questionDiv.querySelector('select');
+            let optionsHTML = '';
+
+            for (let i = 0; i < optionsContainer.children.length; i++) {
+                const optionValue = optionsContainer.children[i].querySelector('input').value || `Option ${i + 1}`;
+                optionsHTML += `<option value="${i}">${optionValue}</option>`;
+            }
+
+            correctAnswerSelect.innerHTML = optionsHTML;
+        }
+    </script>
+</head>
+<body>
+    <h1>Create a New Quiz</h1>
+    <form method="post">
+        <label>Quiz Title: <input type="text" name="quiz_title"></label>
+        <label>Quiz Time (minutes): <input type="number" name="quiz_time" min="1"></label>
+        <label>Number of Questions to Display: 
+            <select name="num_questions_display">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <!-- Add more options as needed -->
+            </select>
+        </label>
+        <!-- The rest of your form for adding questions -->
+        <button type="button" onclick="addQuestion()">Add Question</button>
+        <input type="submit" value="Submit Quiz">
+    </form>
+    
+    <a href="{{ url_for('admin_dashboard') }}">Back to Dashboard</a>
+</body>
+</html>
