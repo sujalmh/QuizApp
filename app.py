@@ -11,6 +11,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///quiz.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['ADMIN_REGISTRATION_KEY'] = 'admin_key'
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -19,7 +20,6 @@ login_manager = LoginManager(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-REGISTRATION_KEY = "YourSecretKeyHere"
 
 def generate_unique_quiz_link():
     return secrets.token_urlsafe(10)
@@ -64,6 +64,10 @@ class Result(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+@app.route('/')
+def home():
+    return render_template('index.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -73,42 +77,91 @@ def login():
         
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('dashboard'))  # Redirect to a protected page
+            if user.role == 'admin':
+                return redirect(url_for('admin_dashboard'))  # Redirect admin to admin dashboard
+            else:
+                return redirect(url_for('dashboard'))  # Redirect regular user to dashboard
         else:
             flash('Invalid username or password.')
     
     return render_template('login.html')  # Render the login template
 
+from flask import request, redirect, url_for, flash, render_template
+from flask_login import login_required, current_user
+
+@app.route('/admin/register', methods=['GET', 'POST'])
+def admin_register():
+    # This example does not include login or role checks for simplicity
+    # Ensure your actual application properly secures this route
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        registration_key = request.form.get('registration_key')
+
+        if registration_key != app.config['ADMIN_REGISTRATION_KEY']:
+            flash('Invalid registration key.')
+            return redirect(url_for('admin_register'))
+
+        # Check if an admin account already exists
+        admin_exists = User.query.filter_by(role='admin').first()
+        if admin_exists:
+            flash('An admin account already exists. Cannot register another admin.')
+            return redirect(url_for('admin_register'))
+
+        user_exists = User.query.filter_by(username=username).first()
+        if user_exists:
+            flash('Username already exists.')
+            return redirect(url_for('admin_register'))
+
+        hashed_password = generate_password_hash(password)
+        # Create the new admin user with the role explicitly set to 'admin'
+        new_admin = User(username=username, password=hashed_password, role='admin')
+        db.session.add(new_admin)
+        db.session.commit()
+
+        # Optionally, you might want to log in the new admin automatically
+        # login_user(new_admin)
+
+        flash('New admin created successfully.')
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('admin_register.html')
+    
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        registration_key = request.form['registration_key']
         
-        if registration_key != REGISTRATION_KEY:
-            flash('Invalid registration key')
-            return render_template('register.html')
-        
+        # Check if the username already exists
         user_exists = User.query.filter_by(username=username).first()
         if user_exists:
             flash('Username already exists')
             return render_template('register.html')
 
-        hashed_password = generate_password_hash(password, method='sha256')
-        new_user = User(username=username, password=hashed_password)
+        # Hash the password for storage
+        hashed_password = generate_password_hash(password)
+        
+        # Create a new User instance with the role set to 'user' by default
+        new_user = User(username=username, password=hashed_password, role='user')
         db.session.add(new_user)
         db.session.commit()
 
+        # Automatically log in the new user
         login_user(new_user)
-        return redirect(url_for('admin_dashboard'))
+
+        # Redirect to the dashboard after successful registration
+        return redirect(url_for('dashboard'))
+
     return render_template('register.html')
 
-@app.route('/admin_dashboard')
+@app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
     if current_user.role != 'admin':
-        return 'Access Denied', 403
+        flash('Access denied: Admins only.')
+        return redirect(url_for('dashboard'))  # Redirect to a general user dashboard or login page
     return render_template('admin_dashboard.html')
 
 @app.route('/dashboard')
