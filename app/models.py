@@ -21,6 +21,7 @@ class Question(db.Model):
     correct_answer = db.Column(db.String(200), nullable=False)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
     options = db.relationship('Option', backref='question', lazy=True)
+    points = db.Column(db.Integer, nullable=False, default=1)
 
 class Option(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -36,6 +37,8 @@ class Quiz(db.Model):
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     questions = db.relationship('Question', backref='quiz', lazy=True)
     results = db.relationship('Result', backref='quiz', lazy=True)
+    start_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
 
 class Result(db.Model):
     id = db.Column(db.Integer, primary_key=True)

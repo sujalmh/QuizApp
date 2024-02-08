@@ -10,22 +10,27 @@
     <h1>{{ quiz.title }}</h1>
     <p>Time Limit: {{ quiz.time_limit }} minutes</p>
     <p>Number of Questions to Display: {{ quiz.num_questions_display }}</p>
-    
+    <p>Start Time: {{ quiz.start_time }}</p>
+    <p>End Time: {{ quiz.end_time }}</p>
     <h2>Questions</h2>
-    <ul>
-        {% for question in questions %}
-            <li>
-                <p>{{ question.text }}</p>
-                <p>Points: {{ question.points }}</p>
-                <p>Correct Answer: {{ question.correct_answer }}</p>
-                <ul>
-                    {% for option in question.options %}
-                        <li>{{ option.text }}</li>
-                    {% endfor %}
-                </ul>
-            </li>
-        {% endfor %}
-    </ul>
+    {% if questions %}
+        <ul>
+            {% for question in questions %}
+                <li>
+                    <p>Question: {{ question.text }}</p>
+                    <p>Options:</p>
+                    <ol>
+                        {% for option in question.options %}
+                            <li>{{ option.text }}</li>
+                        {% endfor %}
+                    </ol>
+                    <p>Correct Answer: {{ question.correct_answer }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No questions found for this quiz.</p>
+    {% endif %}
 
     <a href="{{ url_for('main.admin_dashboard') }}">Back to Dashboard</a>
 </body>

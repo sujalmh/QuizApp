@@ -8,6 +8,7 @@ from . import db, login_manager
 import secrets
 import random
 import re
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 def generate_unique_quiz_link():
@@ -139,35 +140,71 @@ def admin_logout():
         flash('Unauthorized access.', 'error')
         return redirect(url_for('main.login'))  # Fallback for non-admins trying to access the admin logout
 
-@main.route('/add_quiz', methods=['GET','POST'])
+@main.route('/add_quiz', methods=['GET', 'POST'])
+@login_required
 def add_quiz():
     if request.method == 'POST':
         title = request.form.get('quiz_title')
-        time_limit = request.form.get('quiz_time')
-        num_questions_display = request.form.get('num_questions_display')
+        time_limit = request.form.get('quiz_time', type=int)
+        num_questions_display = request.form.get('num_questions_display', type=int)
+        start_time = request.form['start_time']
+        end_time = request.form['end_time']
+        start_time = datetime.strptime(start_time, '%Y-%m-%dT%H:%M')
+        end_time = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
 
-        # Convert num_questions_display to int
-        try:
-            num_questions_display = int(num_questions_display)
-        except (TypeError, ValueError):
-            flash('Number of Questions to Display must be a valid number.')
-            return redirect(url_for('some_route'))  # Adjust as needed
-
-        link = generate_unique_quiz_link()
-        admin_id = current_user.id  # Assuming current_user is set and has an id
-
-        new_quiz = Quiz(title=title, time_limit=time_limit, num_questions_display=num_questions_display, link=link, admin_id=admin_id)
+        # Create a new Quiz instance
+        new_quiz = Quiz(
+            title=title,
+            time_limit=time_limit,
+            num_questions_display=num_questions_display,
+            admin_id=current_user.id,
+            link=generate_unique_quiz_link(),
+            start_time=start_time,
+            end_time=end_time
+        )
+        db.session.add(new_quiz)
         
-        try:
-            db.session.add(new_quiz)
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            flash('Error adding quiz: {}'.format(str(e)))
-            return redirect(url_for('some_route'))  # Adjust as needed
+        # Commit here to get new_quiz.id for foreign key references
+        db.session.commit()
+
+        # Parse and add questions and options
+        for key, value in request.form.items():
+            if 'questions[' in key and 'text' in key:
+                # Extract question index from the key
+                start = key.find('[') + 1
+                end = key.find(']')
+                question_index = int(key[start:end])
+
+                # Extract question text and points
+                question_text = value
+                question_points = request.form.get(f'questions[{question_index}][points]', type=int)
+                
+                # Create a new Question instance
+                question = Question(
+                    text=question_text,
+                    points=question_points,
+                    correct_answer="",  # Placeholder, will update once options are processed
+                    quiz_id=new_quiz.id
+                )
+                db.session.add(question)
+                db.session.commit()  # Commit to get question.id for options
+
+                # Add options
+                options_count = len([k for k in request.form if f'questions[{question_index}][options]' in k])
+                correct_answer_index = int(request.form.get(f'questions[{question_index}][correct_answer]'))
+
+                for option_index in range(options_count):
+                    option_text = request.form.get(f'questions[{question_index}][options][{option_index}]')
+                    option = Option(text=option_text, question_id=question.id)
+                    db.session.add(option)
+
+                    # Set correct answer if this option is the correct one
+                    if option_index == correct_answer_index:
+                        question.correct_answer = option_text
+                db.session.commit()
 
         flash('Quiz added successfully!')
-        return redirect(url_for('main.admin_dashboard'))  # Adjust as needed
+        return redirect(url_for('main.admin_dashboard'))
     return render_template('add_quiz.html')
 
 @main.route('/view_results')
@@ -196,3 +233,6 @@ def view_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     questions = Question.query.filter_by(quiz_id=quiz.id).all()
     return render_template('view_quiz.html', quiz=quiz, questions=questions)
+
+
+

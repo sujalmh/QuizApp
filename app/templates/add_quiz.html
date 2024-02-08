@@ -58,7 +58,12 @@
         <label>Quiz Title: <input type="text" name="quiz_title"></label>
         <label>Quiz Time (minutes): <input type="number" name="quiz_time" min="1"></label>
         <label>Number of Questions to Display: <input type="number" name="num_questions_display" min="1"></label>
-
+        <label for="start_time">Start Time:</label>
+        <input type="datetime-local" id="start_time" name="start_time">
+        
+        <label for="end_time">End Time:</label>
+        <input type="datetime-local" id="end_time" name="end_time">
+    
         <!-- Add the questions-container div here -->
         <div id="questions-container">
             <!-- Questions will be added here dynamically -->
