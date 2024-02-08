@@ -1,0 +1,32 @@
+<!-- templates/view_quiz.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ quiz.title }}</title>
+</head>
+<body>
+    <h1>{{ quiz.title }}</h1>
+    <p>Time Limit: {{ quiz.time_limit }} minutes</p>
+    <p>Number of Questions to Display: {{ quiz.num_questions_display }}</p>
+    
+    <h2>Questions</h2>
+    <ul>
+        {% for question in questions %}
+            <li>
+                <p>{{ question.text }}</p>
+                <p>Points: {{ question.points }}</p>
+                <p>Correct Answer: {{ question.correct_answer }}</p>
+                <ul>
+                    {% for option in question.options %}
+                        <li>{{ option.text }}</li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <a href="{{ url_for('main.admin_dashboard') }}">Back to Dashboard</a>
+</body>
+</html>

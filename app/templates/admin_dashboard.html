@@ -12,6 +12,18 @@
     </div>
     <div>
         <!-- Example within admin_dashboard.html or any admin-specific templates -->
+        <h2>Created Quizzes</h2>
+    <ul>
+        {% for quiz in quizzes %}
+            <li>
+                <a href="{{ url_for('main.view_quiz', quiz_id=quiz.id) }}">{{ quiz.title }}</a>
+                - {{ quiz.questions|length }} Questions
+            </li>
+        {% else %}
+            <li>No quizzes found.</li>
+        {% endfor %}
+    </ul>
+
 <a href="{{ url_for('main.admin_logout') }}">Logout</a>
 
     </div>

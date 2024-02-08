@@ -114,7 +114,8 @@ def admin_dashboard():
     if current_user.role != 'admin':
         flash('Access denied: Admins only.', 'error')
         return redirect(url_for('main.login'))  # Redirect to a general user login page or homepage
-    return render_template('admin_dashboard.html')
+    quizzes = Quiz.query.filter_by(admin_id=current_user.id).all()
+    return render_template('admin_dashboard.html', quizzes=quizzes)
 
 @main.route('/dashboard')
 @login_required
@@ -188,3 +189,10 @@ def take_quiz(quiz_link):
     
     # Render a template to display these questions
     return render_template('take_quiz.html', questions=displayed_questions, quiz=quiz)
+
+@main.route('/quiz/<int:quiz_id>')
+@login_required
+def view_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    questions = Question.query.filter_by(quiz_id=quiz.id).all()
+    return render_template('view_quiz.html', quiz=quiz, questions=questions)
