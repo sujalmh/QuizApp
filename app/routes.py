@@ -1,6 +1,6 @@
 # app/routes.py
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, Quiz, Question, Option, Result
@@ -49,7 +49,7 @@ def admin_register():
         password = request.form['password']
         registration_key = request.form.get('registration_key')
 
-        if registration_key != main.config['ADMIN_REGISTRATION_KEY']:
+        if registration_key != current_app.config['ADMIN_REGISTRATION_KEY']:
             flash('Invalid registration key.')
             return redirect(url_for('main.admin_register'))
 
@@ -133,35 +133,40 @@ def admin_logout():
     if current_user.role == 'admin':
         logout_user()
         flash('You have been logged out.', 'success')
-        return redirect(url_for('main.admin_login'))  # Redirect specifically to the admin login page
+        return redirect(url_for('main.admin_logout'))  # Redirect specifically to the admin login page
     else:
         flash('Unauthorized access.', 'error')
         return redirect(url_for('main.login'))  # Fallback for non-admins trying to access the admin logout
 
-@main.route('/add_quiz', methods=['GET', 'POST'])
-@login_required
+@main.route('/add_quiz', methods=['GET','POST'])
 def add_quiz():
     if request.method == 'POST':
-        quiz_title = request.form.get('quiz_title')
-        quiz_time = request.form.get('quiz_time')
-        num_questions_display = int(request.form.get('num_questions_display'))
-        
-        # Assuming you have a function to generate a unique quiz link
-        quiz_link = generate_unique_quiz_link()
+        title = request.form.get('quiz_title')
+        time_limit = request.form.get('quiz_time')
+        num_questions_display = request.form.get('num_questions_display')
 
-        # Create the quiz with the provided details
-        new_quiz = Quiz(title=quiz_title, time_limit=quiz_time, link=quiz_link, admin_id=current_user.id)
-        db.session.add(new_quiz)
-        db.session.flush()  # To get the new_quiz.id for further use before committing
+        # Convert num_questions_display to int
+        try:
+            num_questions_display = int(num_questions_display)
+        except (TypeError, ValueError):
+            flash('Number of Questions to Display must be a valid number.')
+            return redirect(url_for('some_route'))  # Adjust as needed
+
+        link = generate_unique_quiz_link()
+        admin_id = current_user.id  # Assuming current_user is set and has an id
+
+        new_quiz = Quiz(title=title, time_limit=time_limit, num_questions_display=num_questions_display, link=link, admin_id=admin_id)
         
-        # Here you should also process the added questions and options
-        # For simplicity, this step is not shown. You would parse the questions and options
-        # from the form, create Question and Option objects, and link them to the new_quiz.
-        
-        db.session.commit()
-        
-        # Optionally, redirect to a page showing the quiz details, including the link
-        return redirect(url_for('main.quiz_details', quiz_id=new_quiz.id))
+        try:
+            db.session.add(new_quiz)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding quiz: {}'.format(str(e)))
+            return redirect(url_for('some_route'))  # Adjust as needed
+
+        flash('Quiz added successfully!')
+        return redirect(url_for('main.admin_dashboard'))  # Adjust as needed
     return render_template('add_quiz.html')
 
 @main.route('/view_results')
