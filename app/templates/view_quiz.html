@@ -12,6 +12,7 @@
     <p>Number of Questions to Display: {{ quiz.num_questions_display }}</p>
     <p>Start Time: {{ quiz.start_time }}</p>
     <p>End Time: {{ quiz.end_time }}</p>
+    <p>Link: {{ quiz.link }}</p>
     <h2>Questions</h2>
     {% if questions %}
         <ul>
@@ -31,7 +32,9 @@
     {% else %}
         <p>No questions found for this quiz.</p>
     {% endif %}
-
+    <form action="{{ url_for('main.delete_quiz', quiz_link=quiz_link) }}" method="POST">
+        <input type="submit" value="Delete Quiz" onclick="return confirm('Are you sure you want to delete this quiz?');">
+    </form>    
     <a href="{{ url_for('main.admin_dashboard') }}">Back to Dashboard</a>
 </body>
 </html>

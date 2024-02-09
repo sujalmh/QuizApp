@@ -27,10 +27,29 @@
 
         function addOption(button, questionIndex) {
             const optionsContainer = button.previousElementSibling;
-            const optionIndex = optionsContainer.children.length;
+            const inputs = optionsContainer.querySelectorAll('input[type="text"]');
+            const newOptionIndex = inputs.length;
+
+            // Check for empty inputs before adding a new option
+            for (const input of inputs) {
+                if (input.value.trim() === '') {
+                    alert('Option cannot be empty.');
+                    return; // Prevent adding a new option
+                }
+            }
+
+            // Check for duplicate values
+            const values = Array.from(inputs).map(input => input.value.trim());
+            const hasDuplicates = new Set(values).size !== values.length;
+            if (hasDuplicates) {
+                alert('Options cannot be the same.');
+                return; // Prevent adding a new option if duplicates are found
+            }
+
+            // If validations pass, add new option
             const optionHTML = `
                 <div class="option">
-                    <label>Option ${optionIndex + 1}: <input type="text" name="questions[${questionIndex}][options][${optionIndex}]" onchange="updateCorrectAnswerOptions(this, ${questionIndex})"></label>
+                    <label>Option ${newOptionIndex + 1}: <input type="text" name="questions[${questionIndex}][options][${newOptionIndex}]" onchange="updateCorrectAnswerOptions(this, ${questionIndex})"></label>
                 </div>
             `;
             optionsContainer.insertAdjacentHTML('beforeend', optionHTML);

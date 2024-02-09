@@ -5,14 +5,26 @@ from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, Quiz, Question, Option, Result
 from . import db, login_manager
-import secrets
 import random
 import re
 from datetime import datetime
+import uuid
+import secrets
 
 main = Blueprint('main', __name__)
+
+def generate_random_link_uuid():
+    return str(uuid.uuid4())
+
+def generate_random_link_secrets():
+    return secrets.token_urlsafe(8)  # Adjust the length as needed
+
 def generate_unique_quiz_link():
-    return secrets.token_urlsafe(10)
+    while True:
+        random_link = generate_random_link_secrets()  # or generate_random_link_uuid()
+        existing_quiz = Quiz.query.filter_by(link=random_link).first()
+        if not existing_quiz:
+            return random_link
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -114,7 +126,7 @@ def register():
 def admin_dashboard():
     if current_user.role != 'admin':
         flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('main.login'))  # Redirect to a general user login page or homepage
+        return redirect(url_for('main.login')) 
     quizzes = Quiz.query.filter_by(admin_id=current_user.id).all()
     return render_template('admin_dashboard.html', quizzes=quizzes)
 
@@ -226,6 +238,20 @@ def take_quiz(quiz_link):
     
     # Render a template to display these questions
     return render_template('take_quiz.html', questions=displayed_questions, quiz=quiz)
+
+@main.route('/admin/view_quiz/<quiz_link>')
+def admin_view_quiz(quiz_link):
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    questions = Question.query.filter_by(quiz_id=quiz.id).all()
+    return render_template('view_quiz.html', quiz=quiz, questions=questions)
+
+@main.route('/admin/delete_quiz/<quiz_link>', methods=['POST'])
+def delete_quiz(quiz_link):
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    db.session.delete(quiz)
+    db.session.commit()
+    flash('Quiz deleted successfully.', 'success')
+    return redirect(url_for('admin.dashboard'))  
 
 @main.route('/quiz/<int:quiz_id>')
 @login_required

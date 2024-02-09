@@ -16,7 +16,7 @@
     <ul>
         {% for quiz in quizzes %}
             <li>
-                <a href="{{ url_for('main.view_quiz', quiz_id=quiz.id) }}">{{ quiz.title }}</a>
+                <a href="{{url_for('main.admin_view_quiz', quiz_link=quiz.link) }}">{{ quiz.title }}</a>
                 - {{ quiz.questions|length }} Questions
             </li>
         {% else %}

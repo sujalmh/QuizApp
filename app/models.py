@@ -2,9 +2,20 @@ from . import db
 from flask_login import UserMixin
 from datetime import datetime
 import secrets
+import uuid
+
+def generate_random_link_uuid():
+    return str(uuid.uuid4())
+
+def generate_random_link_secrets():
+    return secrets.token_urlsafe(8)  # Adjust the length as needed
 
 def generate_unique_quiz_link():
-    return secrets.token_urlsafe(10)
+    while True:
+        random_link = generate_random_link_secrets()  # or generate_random_link_uuid()
+        existing_quiz = Quiz.query.filter_by(link=random_link).first()
+        if not existing_quiz:
+            return random_link
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
