@@ -31,7 +31,7 @@ class Question(db.Model):
     text = db.Column(db.String(200), nullable=False)
     correct_answer = db.Column(db.String(200), nullable=False)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
-    options = db.relationship('Option', backref='question', lazy=True)
+    options = db.relationship('Option', backref='question', lazy=True, cascade="all, delete-orphan")
     points = db.Column(db.Integer, nullable=False, default=1)
 
 class Option(db.Model):
@@ -46,7 +46,7 @@ class Quiz(db.Model):
     num_questions_display = db.Column(db.Integer, nullable=False)
     link = db.Column(db.String(255), unique=True, nullable=False, default=generate_unique_quiz_link)
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    questions = db.relationship('Question', backref='quiz', lazy=True)
+    questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
     results = db.relationship('Result', backref='quiz', lazy=True)
     start_time = db.Column(db.DateTime, nullable=True)
     end_time = db.Column(db.DateTime, nullable=True)

@@ -1,6 +1,6 @@
 # app/routes.py
 
-from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, Quiz, Question, Option, Result
@@ -248,10 +248,11 @@ def admin_view_quiz(quiz_link):
 @main.route('/admin/delete_quiz/<quiz_link>', methods=['POST'])
 def delete_quiz(quiz_link):
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    Question.query.filter_by(quiz_id=quiz.id).delete()  # Delete related questions
     db.session.delete(quiz)
     db.session.commit()
-    flash('Quiz deleted successfully.', 'success')
-    return redirect(url_for('admin.dashboard'))  
+    flash('Quiz and related questions deleted successfully.', 'success')
+    return redirect(url_for('main.admin_dashboard'))
 
 @main.route('/quiz/<int:quiz_id>')
 @login_required
