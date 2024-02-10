@@ -24,7 +24,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(10), nullable=False, default='user')
-    results = db.relationship('Result', backref='user', lazy=True)
+    results = db.relationship('Result', back_populates='user')  # Use back_populates for clarity
 
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,7 +47,7 @@ class Quiz(db.Model):
     link = db.Column(db.String(255), unique=True, nullable=False, default=generate_unique_quiz_link)
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
-    results = db.relationship('Result', backref='quiz', lazy=True)
+    results = db.relationship('Result', back_populates='quiz')  # Use back_populates here too
     start_time = db.Column(db.DateTime, nullable=True)
     end_time = db.Column(db.DateTime, nullable=True)
 
@@ -57,3 +57,5 @@ class Result(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', back_populates='results')  # Ensure this matches the User relationship
+    quiz = db.relationship('Quiz', back_populates='results')  # Ensure this matches the Quiz relationship

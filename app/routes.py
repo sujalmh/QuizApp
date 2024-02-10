@@ -1,6 +1,6 @@
 # app/routes.py
 
-from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, Quiz, Question, Option, Result
@@ -26,6 +26,10 @@ def generate_unique_quiz_link():
         if not existing_quiz:
             return random_link
 
+def get_random_questions(quiz_id, num_questions):
+    questions = Question.query.filter_by(quiz_id=quiz_id).all()
+    return random.sample(questions, num_questions) if len(questions) >= num_questions else questions
+
 @login_manager.user_loader
 def load_user(user_id):
     from .models import User
@@ -44,6 +48,7 @@ def login():
         
         if user and check_password_hash(user.password, password):
             login_user(user)
+            session['user_id'] = user.id
             if user.role == 'admin':
                 return redirect(url_for('main.admin_dashboard'))  # Redirect admin to admin dashboard
             else:
@@ -209,9 +214,11 @@ def add_quiz():
                     option_text = request.form.get(f'questions[{question_index}][options][{option_index}]')
                     option = Option(text=option_text, question_id=question.id)
                     db.session.add(option)
-
                     # Set correct answer if this option is the correct one
+                    
+
                     if option_index == correct_answer_index:
+                        print(option.id, type(option.id))
                         question.correct_answer = option_text
                 db.session.commit()
 
@@ -219,25 +226,26 @@ def add_quiz():
         return redirect(url_for('main.admin_dashboard'))
     return render_template('add_quiz.html')
 
-@main.route('/view_results')
-@login_required
-def view_results():
-    # Fetch quiz results from the database
-    results = []  # Replace this with your actual logic to fetch results
-    return render_template('view_results.html', results=results)  # You need to create this template
-
 @main.route('/quiz/<quiz_link>')
 def take_quiz(quiz_link):
+    if not session.get('user_id'):  # Assuming you're using Flask's session to track logged in users
+        flash('You must be logged in to submit quizzes.', 'danger')
+        return redirect(url_for('main.login'))
+
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
-    
-    # Fetch all questions for the quiz
-    questions = quiz.questions  # Assuming a relationship is set up in your models
-    
-    # Randomly select the specified number of questions
-    displayed_questions = random.sample(questions, min(len(questions), quiz.num_questions_display))
-    
-    # Render a template to display these questions
-    return render_template('take_quiz.html', questions=displayed_questions, quiz=quiz)
+
+    # Check if the current time is within the quiz's availability window
+    now = datetime.utcnow()
+    # if quiz.start_time and quiz.end_time:
+    #     if not (quiz.start_time <= now <= quiz.end_time):
+    #         flash('This quiz is not currently available.', 'warning')
+    #         return redirect(url_for('main.dashboard')) 
+    quiz_id=quiz.id
+    questions = Question.query.filter_by(quiz_id=quiz.id).all()
+    num_questions_display = quiz.num_questions_display
+    questions = get_random_questions(quiz_id, num_questions_display)
+
+    return render_template('take_quiz.html', quiz=quiz, questions=questions)
 
 @main.route('/admin/view_quiz/<quiz_link>')
 def admin_view_quiz(quiz_link):
@@ -254,12 +262,48 @@ def delete_quiz(quiz_link):
     flash('Quiz and related questions deleted successfully.', 'success')
     return redirect(url_for('main.admin_dashboard'))
 
-@main.route('/quiz/<int:quiz_id>')
-@login_required
-def view_quiz(quiz_id):
-    quiz = Quiz.query.get_or_404(quiz_id)
+@main.route('/submit_quiz/<quiz_link>', methods=['POST'])
+def submit_quiz(quiz_link):
+    if not session.get('user_id'): 
+        flash('You must be logged in to submit quizzes.', 'danger')
+        return redirect(url_for('main.login'))
+
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
     questions = Question.query.filter_by(quiz_id=quiz.id).all()
-    return render_template('view_quiz.html', quiz=quiz, questions=questions)
+    score = 0
+    print(questions)
+    for question in questions:
+        user_answer = request.form.get(f'question_{question.id}')
+        print(user_answer, question.options)
+        if user_answer and user_answer == question.correct_answer:
+            score += question.points
 
+    # Here you could store the result in the database
+    result = Result(score=score, user_id=session['user_id'], quiz_id=quiz.id, timestamp=datetime.utcnow)
+    db.session.add(result)
+    db.session.commit()
 
+    flash(f'Quiz submitted successfully! Your score: {score}', 'success')
+    return redirect(url_for('main.results'))
 
+@main.route('/results')
+def results():
+    if not session.get('user_id'):  # Assuming you're using Flask's session to track logged in users
+        flash('You must be logged in to submit quizzes.', 'danger')
+        return redirect(url_for('main.login'))
+    
+    user_id = session['user_id']
+    user_results = Result.query.filter_by(user_id=user_id).all()
+
+    return render_template('results.html', user_results=user_results)
+
+@main.route('/admin/quiz_results/<quiz_link>')
+@login_required
+def admin_quiz_results(quiz_link):
+    if current_user.role != 'admin':
+        return "Access denied", 403
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    # Query for quiz results, including user and quiz information
+    results = Result.query.filter_by(quiz_id=quiz.id).join(User).add_columns(User.name, Result.score).all()
+
+    return render_template('admin_quiz_results.html', quiz=quiz, results=results)

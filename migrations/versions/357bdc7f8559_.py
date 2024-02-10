@@ -1,8 +1,8 @@
-"""Add start and end time to Quiz
+"""empty message
 
-Revision ID: 46fc469c8417
+Revision ID: 357bdc7f8559
 Revises: 
-Create Date: 2024-02-09 01:14:04.354977
+Create Date: 2024-02-10 00:36:07.384958
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '46fc469c8417'
+revision = '357bdc7f8559'
 down_revision = None
 branch_labels = None
 depends_on = None
