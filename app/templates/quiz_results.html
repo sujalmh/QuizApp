@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Results</title>
+    <style>
+        .correct { color: green; }
+        .incorrect { color: red; }
+        .selected { font-weight: bold; }
+        .question { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Results for "{{ quiz.title }}"</h1>
+    <p>Total Score: {{ result.score }}</p>
+
+    {% for question in attempt.questions %}
+        <div class="question">
+            <p>Question: {{ question.text }}</p>
+            <ul>
+                {% for option in question.options %}
+                    <li class="{% if option.text == question.correct_answer %}correct{% endif %}">
+                        {{ option.text }}
+                        {% if option.text == question.correct_answer %}
+                            (Correct answer)
+                        {% endif %}
+                        {% for user_answer in user_answers %}
+                            {% if user_answer.question_id == question.id and user_answer.option_id == option.id %}
+                                <span class="selected">(Your choice)</span>
+                            {% endif %}
+                        {% endfor %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endfor %}
+
+    <a href="{{ url_for('main.dashboard') }}">Back to Dashboard</a>
+</body>
+</html>

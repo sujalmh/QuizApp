@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Dashboard</title>
 </head>
 <body>
-    Dashboard
+    <h1>Welcome to the Dashboard, {{ current_user.name }}!</h1>
+    <div>
+        <!-- Example within admin_dashboard.html or any admin-specific templates -->
+        <h2>View Attempted Quizzes</h2>
+
+<a href="{{ url_for('main.logout') }}">Logout</a>
+
+    </div>
 </body>
 </html>

@@ -3,7 +3,7 @@
 from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from .models import User, Quiz, Question, Option, Result
+from .models import User, Quiz, Question, Option, Result, UserAnswer, QuizAttempt
 from . import db, login_manager
 import random
 import re
@@ -32,7 +32,6 @@ def get_random_questions(quiz_id, num_questions):
 
 @login_manager.user_loader
 def load_user(user_id):
-    from .models import User
     return User.query.get(int(user_id))
 
 @main.route('/')
@@ -206,7 +205,6 @@ def add_quiz():
                 db.session.add(question)
                 db.session.commit()  # Commit to get question.id for options
 
-                # Add options
                 options_count = len([k for k in request.form if f'questions[{question_index}][options]' in k])
                 correct_answer_index = int(request.form.get(f'questions[{question_index}][correct_answer]'))
 
@@ -214,7 +212,6 @@ def add_quiz():
                     option_text = request.form.get(f'questions[{question_index}][options][{option_index}]')
                     option = Option(text=option_text, question_id=question.id)
                     db.session.add(option)
-                    # Set correct answer if this option is the correct one
                     
 
                     if option_index == correct_answer_index:
@@ -226,26 +223,45 @@ def add_quiz():
         return redirect(url_for('main.admin_dashboard'))
     return render_template('add_quiz.html')
 
-@main.route('/quiz/<quiz_link>')
-def take_quiz(quiz_link):
-    if not session.get('user_id'):  # Assuming you're using Flask's session to track logged in users
-        flash('You must be logged in to submit quizzes.', 'danger')
-        return redirect(url_for('main.login'))
+@main.route('/attempted/<quiz_link>')
+@login_required
+def attempted(quiz_link):
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    return render_template('attempted.html', quiz_link=quiz_link)
 
+@main.route('/quiz/<quiz_link>')
+@login_required
+def take_quiz(quiz_link):
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
 
-    # Check if the current time is within the quiz's availability window
-    now = datetime.utcnow()
-    # if quiz.start_time and quiz.end_time:
-    #     if not (quiz.start_time <= now <= quiz.end_time):
-    #         flash('This quiz is not currently available.', 'warning')
-    #         return redirect(url_for('main.dashboard')) 
-    quiz_id=quiz.id
-    questions = Question.query.filter_by(quiz_id=quiz.id).all()
-    num_questions_display = quiz.num_questions_display
-    questions = get_random_questions(quiz_id, num_questions_display)
+    # Check if the user has already completed this quiz
+    existing_result = Result.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).first()
+    if existing_result:
+        flash('You have already attempted this quiz.', 'error')
+        return redirect(url_for('main.attempted',quiz_link=quiz_link))
 
-    return render_template('take_quiz.html', quiz=quiz, questions=questions)
+    attempt = QuizAttempt.query.filter_by(user_id=current_user.id, quiz_id=quiz.id, completed=False).first()
+
+    if not attempt:
+        # Create a new attempt
+        attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz.id)
+        db.session.add(attempt)
+        db.session.flush()  # Flush to assign an ID to the attempt without committing the transaction
+
+        # Randomly select questions for this attempt
+        num_questions = quiz.num_questions_display
+        selected_questions = get_random_questions(quiz.id, num_questions)
+
+        # Link selected questions to this attempt
+        for question in selected_questions:
+            attempt.questions.append(question)
+        
+        db.session.commit()
+    else:
+        # On reload, fetch the questions already associated with the attempt
+        selected_questions = attempt.questions
+
+    return render_template('take_quiz.html', quiz=quiz, questions=selected_questions, attempt_id=attempt.id)
 
 @main.route('/admin/view_quiz/<quiz_link>')
 def admin_view_quiz(quiz_link):
@@ -263,28 +279,48 @@ def delete_quiz(quiz_link):
     return redirect(url_for('main.admin_dashboard'))
 
 @main.route('/submit_quiz/<quiz_link>', methods=['POST'])
+@login_required
 def submit_quiz(quiz_link):
-    if not session.get('user_id'): 
-        flash('You must be logged in to submit quizzes.', 'danger')
-        return redirect(url_for('main.login'))
+    attempt_id = request.form.get('attempt_id')
+    attempt = QuizAttempt.query.filter_by(id=attempt_id, user_id=current_user.id).first_or_404()
 
-    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
-    questions = Question.query.filter_by(quiz_id=quiz.id).all()
     score = 0
-    print(questions)
-    for question in questions:
-        user_answer = request.form.get(f'question_{question.id}')
-        print(user_answer, question.options)
-        if user_answer and user_answer == question.correct_answer:
-            score += question.points
+    for question in attempt.quiz.questions:
+        selected_option_text = request.form.get(f'question_{question.id}')
 
-    # Here you could store the result in the database
-    result = Result(score=score, user_id=session['user_id'], quiz_id=quiz.id, timestamp=datetime.utcnow)
+        if selected_option_text:  # Check if an option was selected
+            # Find the option in the question's options based on the text
+            selected_option = next((option for option in question.options if option.text == selected_option_text), None)
+
+            if selected_option:
+                # Create a UserAnswer record with the selected option's ID
+                user_answer = UserAnswer(
+                    user_id=current_user.id,
+                    quiz_id=attempt.quiz_id,
+                    question_id=question.id,
+                    option_id=selected_option.id,  # Use the ID of the found option
+                    attempt_id=attempt.id
+                )
+                db.session.add(user_answer)
+
+                # Check if the selected option's text matches the correct answer text
+                if selected_option_text == question.correct_answer:
+                    score += question.points
+            else:
+                # Handle the case where no matching option is found; might indicate an issue or unexpected data
+                pass
+        else:
+            # Optionally handle the case where no option was selected for a question
+            pass
+    result = Result(score=score, user_id=current_user.id, quiz_id=attempt.quiz.id, attempted=True, timestamp=datetime.utcnow())
     db.session.add(result)
+        
+    attempt.completed = True  # Mark the attempt as completed
     db.session.commit()
 
     flash(f'Quiz submitted successfully! Your score: {score}', 'success')
-    return redirect(url_for('main.results'))
+    return redirect(url_for('main.quiz_results', quiz_link=quiz_link))
+
 
 @main.route('/results')
 def results():
@@ -294,8 +330,20 @@ def results():
     
     user_id = session['user_id']
     user_results = Result.query.filter_by(user_id=user_id).all()
-
     return render_template('results.html', user_results=user_results)
+
+@main.route('/quiz_results/<quiz_link>')
+@login_required
+def quiz_results(quiz_link):
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    attempt = QuizAttempt.query.filter_by(user_id=current_user.id, quiz_id=quiz.id, completed=True).first_or_404()
+    result = Result.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).first_or_404()
+    # Fetch user answers for detailed results, if necessary
+    user_answers = UserAnswer.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).all()
+
+    score = result.score  # Placeholder, replace with actual logic to fetch the score
+
+    return render_template('quiz_results.html', quiz=quiz, score=score, attempt=attempt, result=result, user_answers=user_answers)
 
 @main.route('/admin/quiz_results/<quiz_link>')
 @login_required
@@ -307,3 +355,8 @@ def admin_quiz_results(quiz_link):
     results = Result.query.filter_by(quiz_id=quiz.id).join(User).add_columns(User.name, Result.score).all()
 
     return render_template('admin_quiz_results.html', quiz=quiz, results=results)
+
+@main.route('/<path:path>', methods=['GET', 'POST'])
+def catch_all(path):
+    print(f"Unhandled path: {path}")
+    return f"Path requested: {path}", 404
