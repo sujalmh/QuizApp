@@ -244,18 +244,13 @@ def take_quiz(quiz_link):
 
     if not attempt:
         # Create a new attempt
+        all_questions = Question.query.filter_by(quiz_id=quiz.id).all()
+        selected_questions = random.sample(all_questions, min(len(all_questions), quiz.num_questions_display))
+        
+        # Create a new QuizAttempt and associate the selected questions
         attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz.id)
         db.session.add(attempt)
-        db.session.flush()  # Flush to assign an ID to the attempt without committing the transaction
-
-        # Randomly select questions for this attempt
-        num_questions = quiz.num_questions_display
-        selected_questions = get_random_questions(quiz.id, num_questions)
-
-        # Link selected questions to this attempt
-        for question in selected_questions:
-            attempt.questions.append(question)
-        
+        attempt.questions.extend(selected_questions)
         db.session.commit()
     else:
         # On reload, fetch the questions already associated with the attempt
@@ -348,13 +343,24 @@ def quiz_results(quiz_link):
 @main.route('/admin/quiz_results/<quiz_link>')
 @login_required
 def admin_quiz_results(quiz_link):
-    if current_user.role != 'admin':
-        return "Access denied", 403
-    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
-    # Query for quiz results, including user and quiz information
-    results = Result.query.filter_by(quiz_id=quiz.id).join(User).add_columns(User.name, Result.score).all()
+    # Ensure the current user is an admin
+    if not current_user.role == 'admin':
+        flash('Access denied: Requires admin privileges.', 'error')
+        return redirect(url_for('main.dashboard'))
 
-    return render_template('admin_quiz_results.html', quiz=quiz, results=results)
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+
+    # Fetch all attempts for this quiz
+    # Assuming you want to show attempts regardless of completion for more comprehensive data
+    attempts = QuizAttempt.query.filter_by(quiz_id=quiz.id).all()
+
+    # Optionally, you can fetch results if they are stored separately
+    results = Result.query.filter_by(quiz_id=quiz.id).all()
+
+    # Organize data as needed, e.g., by user, score, etc.
+    # This example passes attempts directly; adjust according to your template needs
+
+    return render_template('admin_quiz_results.html', quiz=quiz, attempts=attempts, results=results)
 
 @main.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):

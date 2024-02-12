@@ -1,24 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>{{ quiz.title }} Results</title>
+    <meta charset="UTF-8">
+    <title>Admin - Quiz Results</title>
 </head>
 <body>
-    <h1>Results for {{ quiz.title }}</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>User</th>
-                <th>Score</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for result, user, quiz in results %}
-            {{ user.name }} <!-- If 'user' is the second entity in the tuple -->
-            {{ result.score }}
-            {% endfor %}
-                </tbody>
-    </table>
-    <a href="{{ url_for('main.admin_dashboard') }}">Back to Dashboard</a>
+    <h1>Quiz Results for "{{ quiz.title }}"</h1>
+
+    <h2>Attempts</h2>
+    {% for attempt in attempts %}
+        <div>
+            <p>User: {{ attempt.user.username }} (Score: {{ attempt.score }})</p>
+            <!-- Display more detailed attempt information as needed -->
+        </div>
+    {% endfor %}
+
+    <h2>Or Display Results</h2>
+    {% for result in results %}
+        <div>
+            <p>User: {{ result.user.username }} (Score: {{ result.score }})</p>
+            <!-- Display more detailed results information as needed -->
+        </div>
+    {% endfor %}
+
+    <a href="{{ url_for('main.admin_dashboard') }}">Back to Admin Dashboard</a>
 </body>
 </html>
