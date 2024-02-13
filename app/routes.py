@@ -1,5 +1,3 @@
-# app/routes.py
-
 from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,11 +5,14 @@ from .models import User, Quiz, Question, Option, Result, UserAnswer, QuizAttemp
 from . import db, login_manager
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import secrets
+import pytz
+
 
 main = Blueprint('main', __name__)
+ist_timezone = pytz.timezone('Asia/Kolkata')
 
 def generate_random_link_uuid():
     return str(uuid.uuid4())
@@ -85,7 +86,6 @@ def admin_register():
         return redirect(url_for('main.admin_dashboard'))
 
     return render_template('admin_register.html')
-
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -165,10 +165,11 @@ def add_quiz():
         num_questions_display = request.form.get('num_questions_display', type=int)
         start_time = request.form['start_time']
         end_time = request.form['end_time']
-        start_time = datetime.strptime(start_time, '%Y-%m-%dT%H:%M')
-        end_time = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
+        start_time_naive  = datetime.strptime(start_time, '%Y-%m-%dT%H:%M')
+        end_time_naive = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
+        start_time = ist_timezone.localize(start_time_naive)
+        end_time = ist_timezone.localize(end_time_naive)
 
-        # Create a new Quiz instance
         new_quiz = Quiz(
             title=title,
             time_limit=time_limit,
@@ -178,32 +179,28 @@ def add_quiz():
             start_time=start_time,
             end_time=end_time
         )
-        db.session.add(new_quiz)
         
-        # Commit here to get new_quiz.id for foreign key references
+        db.session.add(new_quiz)
         db.session.commit()
 
-        # Parse and add questions and options
         for key, value in request.form.items():
             if 'questions[' in key and 'text' in key:
-                # Extract question index from the key
+
                 start = key.find('[') + 1
                 end = key.find(']')
                 question_index = int(key[start:end])
 
-                # Extract question text and points
                 question_text = value
                 question_points = request.form.get(f'questions[{question_index}][points]', type=int)
                 
-                # Create a new Question instance
                 question = Question(
                     text=question_text,
                     points=question_points,
-                    correct_answer="",  # Placeholder, will update once options are processed
+                    correct_answer="",  
                     quiz_id=new_quiz.id
                 )
                 db.session.add(question)
-                db.session.commit()  # Commit to get question.id for options
+                db.session.commit()  
 
                 options_count = len([k for k in request.form if f'questions[{question_index}][options]' in k])
                 correct_answer_index = int(request.form.get(f'questions[{question_index}][correct_answer]'))
@@ -213,7 +210,6 @@ def add_quiz():
                     option = Option(text=option_text, question_id=question.id)
                     db.session.add(option)
                     
-
                     if option_index == correct_answer_index:
                         print(option.id, type(option.id))
                         question.correct_answer = option_text
@@ -234,29 +230,33 @@ def attempted(quiz_link):
 def take_quiz(quiz_link):
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
 
-    # Check if the user has already completed this quiz
+    now_ist = datetime.now(ist_timezone)
+    
+    if now_ist < quiz.start_time.astimezone(ist_timezone):
+        flash('This quiz has not started yet.', 'warning')
+        return redirect(url_for('main.dashboard'))
+    elif now_ist > quiz.end_time.astimezone(ist_timezone):
+        flash('This quiz has already ended.', 'warning')
+        return redirect(url_for('main.dashboard'))
+
     existing_result = Result.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).first()
     if existing_result:
         flash('You have already attempted this quiz.', 'error')
         return redirect(url_for('main.attempted',quiz_link=quiz_link))
-
+    
     attempt = QuizAttempt.query.filter_by(user_id=current_user.id, quiz_id=quiz.id, completed=False).first()
-
+    
     if not attempt:
-        # Create a new attempt
         all_questions = Question.query.filter_by(quiz_id=quiz.id).all()
         selected_questions = random.sample(all_questions, min(len(all_questions), quiz.num_questions_display))
-        
-        # Create a new QuizAttempt and associate the selected questions
-        attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz.id)
+        attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz.id, timestamp=now_ist + timedelta(minutes=quiz.time_limit))
         db.session.add(attempt)
         attempt.questions.extend(selected_questions)
         db.session.commit()
     else:
-        # On reload, fetch the questions already associated with the attempt
         selected_questions = attempt.questions
-
-    return render_template('take_quiz.html', quiz=quiz, questions=selected_questions, attempt_id=attempt.id)
+        
+    return render_template('take_quiz.html', quiz=quiz, questions=selected_questions, attempt_id=attempt.id, end_time=attempt.timestamp)
 
 @main.route('/admin/view_quiz/<quiz_link>')
 def admin_view_quiz(quiz_link):
@@ -350,19 +350,27 @@ def admin_quiz_results(quiz_link):
 
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
 
-    # Fetch all attempts for this quiz
-    # Assuming you want to show attempts regardless of completion for more comprehensive data
     attempts = QuizAttempt.query.filter_by(quiz_id=quiz.id).all()
 
-    # Optionally, you can fetch results if they are stored separately
     results = Result.query.filter_by(quiz_id=quiz.id).all()
+    attempts_results = [{'attempt': attempt, 'result': result} for attempt, result in zip(attempts, results)]
 
-    # Organize data as needed, e.g., by user, score, etc.
-    # This example passes attempts directly; adjust according to your template needs
-
-    return render_template('admin_quiz_results.html', quiz=quiz, attempts=attempts, results=results)
+    return render_template('admin_quiz_results.html', quiz=quiz, attempts_results=attempts_results)
 
 @main.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
     print(f"Unhandled path: {path}")
     return f"Path requested: {path}", 404
+
+@main.route('/admin/quiz_attempt_details/<quiz_link>/<int:attempt_id>')
+@login_required
+def quiz_attempt_details(quiz_link, attempt_id):
+    if not current_user.role == 'admin':
+        flash('Access denied: Requires admin privileges.', 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    attempt = QuizAttempt.query.get_or_404(attempt_id)
+    user_answers = UserAnswer.query.filter_by(attempt_id=attempt.id).all()
+    result = Result.query.filter_by(user_id=attempt.user_id, quiz_id=attempt.quiz_id).first()
+    return render_template('quiz_attempt_details.html', quiz=quiz, attempt=attempt, user_answers=user_answers, result=result)

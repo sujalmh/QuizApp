@@ -3,26 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin - Quiz Results</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {background-color: #f9f9f9;}
+    </style>
+    
 </head>
 <body>
     <h1>Quiz Results for "{{ quiz.title }}"</h1>
 
-    <h2>Attempts</h2>
-    {% for attempt in attempts %}
-        <div>
-            <p>User: {{ attempt.user.username }} (Score: {{ attempt.score }})</p>
-            <!-- Display more detailed attempt information as needed -->
-        </div>
-    {% endfor %}
 
-    <h2>Or Display Results</h2>
-    {% for result in results %}
-        <div>
-            <p>User: {{ result.user.username }} (Score: {{ result.score }})</p>
-            <!-- Display more detailed results information as needed -->
-        </div>
-    {% endfor %}
-
+    <h2>Display Results</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>USN</th>
+                <th>Score</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ar in attempts_results %}
+                <tr>
+                    <td>{{ ar.attempt.user.name }}</td>
+                    <td>{{ ar.attempt.user.usn }}</td>
+                    <td>{{ ar.result.score }}</td>
+                    <td>
+                        <a href="{{ url_for('main.quiz_attempt_details', quiz_link=quiz.link, attempt_id=ar.attempt.id) }}">View Details</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
     <a href="{{ url_for('main.admin_dashboard') }}">Back to Admin Dashboard</a>
 </body>
 </html>

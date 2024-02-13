@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Attempt Details</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {background-color: #f2f2f2;}
+        .correct {
+            color: green;
+        }
+        .incorrect {
+            color: red;
+        }
+    </style>
+        
+</head>
+<body>
+    <h1>Quiz: {{ quiz.title }} Attempt Details for "{{ attempt.user.name }}, {{ attempt.user.usn }}"</h1>
+    <p>Score: {{result.score}}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Question</th>
+                <th>Selected Answer</th>
+                <th>Correct Answer</th>
+                <th>Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user_answer in user_answers %}
+            <tr>
+                <!-- Include question points with the question text -->
+                <td>{{ user_answer.question.text }}</td>
+                <!-- Apply conditional class based on answer correctness -->
+                <td class="{{ 'correct' if user_answer.option.text == user_answer.question.correct_answer else 'incorrect' }}">
+                    {{ user_answer.option.text }}
+                    {% if user_answer.option.text == user_answer.question.correct_answer %}
+                        (Correct)
+                    {% else %}
+                        (Your choice)
+                    {% endif %}
+                </td>
+                <td>{{ user_answer.question.correct_answer }}</td>
+                <td>{% if user_answer.option.text == user_answer.question.correct_answer %}{{ user_answer.question.points }}{% else %}0{% endif %}/{{ user_answer.question.points }}</td>
+            </tr>
+        {% endfor %}
+                </tbody>
+    </table>
+        
+    <a href="{{ url_for('main.admin_quiz_results', quiz_link=attempt.quiz.link) }}">Back to Quiz Results</a>
+</body>
+</html>

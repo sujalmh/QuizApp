@@ -5,6 +5,14 @@
     <title>Dashboard</title>
 </head>
 <body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
     <h1>Welcome to the Dashboard, {{ current_user.name }}!</h1>
     <div>
         <!-- Example within admin_dashboard.html or any admin-specific templates -->
