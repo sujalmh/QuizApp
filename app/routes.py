@@ -14,6 +14,7 @@ import pytz
 main = Blueprint('main', __name__)
 ist_timezone = pytz.timezone('Asia/Kolkata')
 
+
 def generate_random_link_uuid():
     return str(uuid.uuid4())
 
@@ -316,7 +317,6 @@ def submit_quiz(quiz_link):
     flash(f'Quiz submitted successfully! Your score: {score}', 'success')
     return redirect(url_for('main.quiz_results', quiz_link=quiz_link))
 
-
 @main.route('/results')
 def results():
     if not session.get('user_id'):  # Assuming you're using Flask's session to track logged in users
@@ -374,3 +374,15 @@ def quiz_attempt_details(quiz_link, attempt_id):
     user_answers = UserAnswer.query.filter_by(attempt_id=attempt.id).all()
     result = Result.query.filter_by(user_id=attempt.user_id, quiz_id=attempt.quiz_id).first()
     return render_template('quiz_attempt_details.html', quiz=quiz, attempt=attempt, user_answers=user_answers, result=result)
+
+@main.route('/enter_quiz', methods=['POST'])
+@login_required
+def enter_quiz():
+    quiz_code = request.form.get('quiz_code')
+    quiz = Quiz.query.filter_by(link=quiz_code).first()
+    
+    if quiz:
+        return redirect(url_for('main.take_quiz', quiz_link=quiz_code))
+    else:
+        flash('Quiz code is invalid.', 'error')
+        return redirect(url_for('main.dashboard'))

@@ -11,15 +11,19 @@
             <div class="alert alert-{{ category }}">{{ message }}</div>
         {% endfor %}
     {% endif %}
-{% endwith %}
+    {% endwith %}
 
     <h1>Welcome to the Dashboard, {{ current_user.name }}!</h1>
+
+    <form action="{{ url_for('main.enter_quiz') }}" method="post">
+        <label for="quiz_code">Enter Quiz Code:</label>
+        <input type="text" id="quiz_code" name="quiz_code" required>
+        <button type="submit">Enter Quiz</button>
+    </form>
+
     <div>
-        <!-- Example within admin_dashboard.html or any admin-specific templates -->
         <h2>View Attempted Quizzes</h2>
-
-<a href="{{ url_for('main.logout') }}">Logout</a>
-
+        <a href="{{ url_for('main.logout') }}">Logout</a>
     </div>
 </body>
 </html>
