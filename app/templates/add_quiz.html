@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Create a Quiz</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
     <script>
         function addQuestion() {
             const questionsContainer = document.getElementById('questions-container');
@@ -72,6 +75,7 @@
     </script>
 </head>
 <body>
+    
     <h1>Create a New Quiz</h1>
     <form action="{{ url_for('main.add_quiz') }}" method="post">
         <label>Quiz Title: <input type="text" name="quiz_title"></label>
@@ -83,9 +87,7 @@
         <label for="end_time">End Time:</label>
         <input type="datetime-local" id="end_time" name="end_time">
     
-        <!-- Add the questions-container div here -->
         <div id="questions-container">
-            <!-- Questions will be added here dynamically -->
         </div>
 
         <button type="button" onclick="addQuestion()">Add Question</button>

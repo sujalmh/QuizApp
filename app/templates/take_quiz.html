@@ -2,11 +2,13 @@
 <html>
 <head>
     <title>{{ quiz.title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
 </head>
 <body>
     <h1>{{ quiz.title }}</h1>    <div id="timer"></div>
 
-    <form action="{{ url_for('main.submit_quiz', quiz_link=quiz.link) }}" method="post">
+    <form action="{{ url_for('main.submit_quiz', quiz_link=quiz.link) }}" id="quizForm" method="post">
         <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
 
         {% for question in questions %}
@@ -36,13 +38,10 @@
             document.getElementById("timer").innerHTML = minutes + "m " + seconds + "s ";
 
             // If the countdown is over, stop the timer
-            if (distance < 0) {
+            if (distance <= 0) {
                 clearInterval(timer);
+                document.getElementById('quizForm').submit();
                 document.getElementById("timer").innerHTML = "EXPIRED";
-                // Optionally, submit the quiz automatically or redirect
-                // document.getElementById("quizForm").submit();
-                // or
-                // window.location.href = '/quiz/results';
             }
         }, 1000);
     </script>

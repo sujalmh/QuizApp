@@ -1,0 +1,91 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(to bottom, #87ceeb 0%, #ffffff 100%);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+
+h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 10px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    letter-spacing: 1px;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 10px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    letter-spacing: 1px;
+}
+
+.container{
+    border: 2px solid #76818eaf; 
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0px 15px 20px rgba(0,0,0,0.1);
+    margin: auto; 
+    backdrop-filter: blur(20px);
+    background-color: #fafafa;
+    margin: 10px;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s ease; 
+    font-weight: bold;
+}
+
+a:hover {
+    color: #0056b3; 
+    text-decoration: underline;
+}
+form {
+    display: flex;
+    flex-wrap: wrap; /* Allows items to wrap to the next line on small screens */
+    width: 100%;
+}
+
+button, input {
+    flex: 1 0 auto; /* flex-grow: 1 ensures the elements take up equal space; flex-basis: auto allows them to grow */
+    margin: 10px; /* Adjust spacing */
+}
+
+button {
+    padding: 15px 30px;
+    background: linear-gradient(to right, #003366, #004080, #0059b3, #0073e6);
+    color: #fff;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-decoration: none;
+    outline: none;
+    font-size: 17px;
+}
+
+input {
+    padding: 15px 30px;
+    border-radius: 15px;
+    border: 1px solid lightgrey;
+    border-bottom-width: 2px;
+    font-size: 17px;
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 600px) {
+    form {
+        flex-direction: column; /* Stack elements vertically */
+    }
+    
+    button, input {
+        width: auto; /* Adjust width for smaller screens */
+    }
+}
+

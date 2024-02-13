@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
 </head>
 <body>
+    
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -15,14 +19,36 @@
 
     <h1>Welcome to the Dashboard, {{ current_user.name }}!</h1>
 
-    <form action="{{ url_for('main.enter_quiz') }}" method="post">
-        <label for="quiz_code">Enter Quiz Code:</label>
-        <input type="text" id="quiz_code" name="quiz_code" required>
-        <button type="submit">Enter Quiz</button>
-    </form>
-
-    <div>
-        <h2>View Attempted Quizzes</h2>
+    <div class="container">
+        <form action="{{ url_for('main.enter_quiz') }}" method="post">
+            <input type="text" id="quiz_code" name="quiz_code" placeholder="Enter Quiz Code / Link" required>
+            <div class="btn-layer">
+            <button type="submit" class="btn-layer">Enter Quiz</button></div>
+        </form>
+    </div>
+    <div class="container">
+        <h2>Your Quiz Attempts</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Quiz Title</th>
+                    <th>Score</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ar in attempts_results %}
+                <tr>
+                    <td>{{ ar[0].quiz.title }}</td>
+                    <td>{{ ar[1].score }}</td>
+                    <td>
+                        <a href="{{ url_for('main.user_quiz_attempt_details', quiz_link=ar[0].quiz.link, attempt_id=ar[0].id) }}">View Details</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    
         <a href="{{ url_for('main.logout') }}">Logout</a>
     </div>
 </body>

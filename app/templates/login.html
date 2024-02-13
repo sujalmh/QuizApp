@@ -2,21 +2,122 @@
 <html>
 <head>
     <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <style>
+        #flash-success {background-color: #fafafa; padding: 15px; border-radius: 5px; color: #5cb85c;} /* Green for success messages */
+        #flash-info {background-color: #fafafa;} /* Blue for info messages */
+        #flash-warning {background-color: #fafafa; padding: 15px; border-radius: 5px; color: #cc3300;} /* Orange for warning messages */
+      </style>      
 </head>
 <body>
+    <script>
+        id = document.getElementById("flash-success");
+        id.style.display = 'block';
+    </script>
+        
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="flash-{{ category }}">{{ message }}</div>
+                <div id="flash-{{ category }}" id="alertPlaceholder">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <form method="post">
-        Username: <input type="text" name="username"><br>
-        Password: <input type="password" name="password"><br>
-        <input type="submit" value="Login">
-    </form>
-    <p>Don't have an account? <a href="{{ url_for('main.register') }}">Register here</a></p>
+    <div class="wrapper">
+        <div class="title-text">
+          <div class="title login">Login Form</div>
+          <div class="title signup">Signup Form</div>
+        </div>
+        <div class="form-container">
+          <div class="slide-controls">
+            <input type="radio" name="slide" id="login" checked>
+            <input type="radio" name="slide" id="signup">
+            <label for="login" class="slide login">Login</label>
+            <label for="signup" class="slide signup">Signup</label>
+            <div class="slider-tab"></div>
+          </div>
+          <div class="form-inner">
+            <form action="{{url_for('main.login')}}" method="post" class="login">
+              <div class="field">
+                <input type="text" name="username" placeholder="Username" required>
+              </div>
+              <div class="field">
+                <input type="password" name="password" placeholder="Password" required>
+              </div>
+              <div class="pass-link"><a href="#">Forgot password?</a></div>
+              <div class="field btn">
+                <div class="btn-layer"></div>
+                <input type="submit" value="Login">
+              </div>
+              <div class="signup-link">Not a user? <a href="">Signup now</a></div>
+            </form>
+            <form action="{{url_for('main.register')}}" method="post" class="signup">
+              <div class="field">
+                <input type="text" name="name" placeholder="Name" required>
+              </div>
+              <div class="field">
+                <input type="text" id="usnInput" name="usn" pattern="4MT\d\d[A-Z][A-Z]\d\d\d" title="USN must be in the format 4MT**$$***" placeholder="USN" required>
+              </div>
+              <div class="field">
+                <input type="text" name="username" placeholder="Username" required>
+              </div>
+              <div class="field">
+                <input type="password" id="password" name="password" placeholder="Password" required>
+              </div>
+              <div class="field">
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm password" required>
+              </div>
+              <div class="field btn">
+                <div class="btn-layer"></div>
+                <input type="submit" id="submitBtn" value="Register" disabled>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <div class="container">
+    <script>
+         const loginText = document.querySelector(".title-text .login");
+      const loginForm = document.querySelector("form.login");
+      const loginBtn = document.querySelector("label.login");
+      const signupBtn = document.querySelector("label.signup");
+      const signupLink = document.querySelector("form .signup-link a");
+      signupBtn.onclick = (()=>{
+        loginForm.style.marginLeft = "-50%";
+        loginText.style.marginLeft = "-50%";
+      });
+      loginBtn.onclick = (()=>{
+        loginForm.style.marginLeft = "0%";
+        loginText.style.marginLeft = "0%";
+      });
+      signupLink.onclick = (()=>{
+        signupBtn.click();
+        return false;
+      });
+      document.getElementById('usnInput').addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+        document.addEventListener("DOMContentLoaded", function() {
+  // Get the elements
+  var password = document.getElementById("password");
+  var confirm_password = document.getElementById("confirm_password");
+  var submitBtn = document.getElementById("submitBtn");
 
+  // Function to check if passwords match
+  function checkPasswordsMatch() {
+    if (password.value === confirm_password.value && password.value !== '') {
+      submitBtn.disabled = false; 
+    } else {
+      submitBtn.disabled = true;  
+    }
+  }
+
+  // Event listeners
+  password.addEventListener('input', checkPasswordsMatch);
+  confirm_password.addEventListener('input', checkPasswordsMatch);
+});
+
+    </script>
+</div>
 </body>
 </html>
