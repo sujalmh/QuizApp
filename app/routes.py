@@ -12,7 +12,6 @@ import uuid
 import secrets
 import pytz
 
-
 main = Blueprint('main', __name__)
 ist_timezone = pytz.timezone('Asia/Kolkata')
 
@@ -29,11 +28,11 @@ def generate_random_link_uuid():
     return str(uuid.uuid4())
 
 def generate_random_link_secrets():
-    return secrets.token_urlsafe(8)  # Adjust the length as needed
+    return secrets.token_urlsafe(8)
 
 def generate_unique_quiz_link():
     while True:
-        random_link = generate_random_link_secrets()  # or generate_random_link_uuid()
+        random_link = generate_random_link_secrets()
         existing_quiz = Quiz.query.filter_by(link=random_link).first()
         if not existing_quiz:
             return random_link
@@ -48,30 +47,11 @@ def load_user(user_id):
 
 @main.route('/')
 def home():
+       
     return render_template('index.html')
 
-@main.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            session['user_id'] = user.id
-            if user.role == 'admin':
-                return redirect(url_for('main.admin_dashboard'))  
-            else:
-                return redirect(url_for('main.dashboard'))  
-        else:
-            flash('Invalid username or password.')
-    
-    return render_template('login.html')  
-
 @main.route('/admin/register', methods=['GET', 'POST'])
-def admin_register():
-
+def admin_register():       
     if request.method == 'POST':
         name = request.form['name']
         username = request.form['username']
@@ -100,6 +80,10 @@ def admin_register():
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
+    if session.get('user_id'): 
+        flash('Already logged in', 'info')
+        return redirect(url_for('main.dashboard'))
+
     if request.method == 'POST':
         name = request.form['name']
         usn = request.form.get('usn').upper() 
@@ -124,15 +108,77 @@ def register():
         try:
             db.session.add(new_user)
             db.session.commit()
+            login_user(new_user)
+
             flash('Registration successful!','success')
-            return redirect(url_for('main.login'))
+            return redirect(url_for('main.dashboard'))
         except Exception as e:
             db.session.rollback()
             flash('Registration failed. Error: {}'.format(str(e)), 'error')
-
         return redirect(url_for('main.login'))
 
     return render_template('register.html')
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('user_id'):
+        flash('Already logged in', 'info')
+        return redirect(url_for('main.dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            session['user_id'] = user.id
+            if user.role == 'admin':
+                return redirect(url_for('main.admin_dashboard'))  
+            else:
+                return redirect(url_for('main.dashboard'))  
+        else:
+            flash('Invalid username or password.', 'danger')
+    
+    return render_template('login.html')  
+
+@main.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    session.pop('user_id', None)  
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('main.login'))
+
+@main.route('/admin/logout')
+@login_required
+def admin_logout():
+    if current_user.role == 'admin':
+        logout_user()
+        session.pop('user_id', None)
+        flash('You have been logged out.', 'success')
+        return redirect(url_for('main.login'))
+    else:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('main.login'))
+
+@main.route('/dashboard')
+@login_required
+def dashboard():
+    if session.get('user_id'): 
+        user = User.query.filter_by(id=session.get('user_id')).first_or_404()
+        name = user.name
+    else:
+        name = None
+    attempted_quizzes = QuizAttempt.query.filter_by(user_id=current_user.id).all()
+    attempts_results = []
+    for attempted_quiz in attempted_quizzes:
+        result = Result.query.filter_by(user_id=current_user.id, quiz_id=attempted_quiz.quiz_id).first()
+        if result == None:
+            continue
+        attempts_results.append([attempted_quiz, result])
+        print([attempted_quiz, result])
+    return render_template('dashboard.html', attempts_results=attempts_results, name=name)
 
 @main.route('/admin/dashboard')
 @login_required
@@ -142,36 +188,6 @@ def admin_dashboard():
         return redirect(url_for('main.login')) 
     quizzes = Quiz.query.filter_by(admin_id=current_user.id).all()
     return render_template('admin_dashboard.html', quizzes=quizzes)
-
-@main.route('/dashboard')
-@login_required
-def dashboard():
-    attempted_quizzes = QuizAttempt.query.filter_by(user_id=current_user.id).all()
-    attempts_results = []
-    for attempted_quiz in attempted_quizzes:
-        result = Result.query.filter_by(user_id=current_user.id, quiz_id=attempted_quiz.quiz_id).first()
-        if result == None:
-            continue
-        attempts_results.append([attempted_quiz, result])
-        print([attempted_quiz, result])
-    return render_template('dashboard.html', attempts_results=attempts_results)
-
-@main.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('main.login'))
-
-@main.route('/admin/logout')
-@login_required
-def admin_logout():
-    if current_user.role == 'admin':
-        logout_user()
-        flash('You have been logged out.', 'success')
-        return redirect(url_for('main.admin_logout'))  # Redirect specifically to the admin login page
-    else:
-        flash('Unauthorized access.', 'error')
-        return redirect(url_for('main.login'))  # Fallback for non-admins trying to access the admin logout
 
 @main.route('/add_quiz', methods=['GET', 'POST'])
 @login_required
@@ -246,6 +262,10 @@ def attempted(quiz_link):
 @main.route('/quiz/<quiz_link>')
 @login_required
 def take_quiz(quiz_link):
+    if not session.get('user_id'): 
+        flash('You must be logged in to submit quizzes.', 'danger')
+        return redirect(url_for('main.login'))
+
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
 
     now_ist = datetime.now(ist_timezone)
@@ -284,7 +304,7 @@ def admin_view_quiz(quiz_link):
 @main.route('/admin/delete_quiz/<quiz_link>', methods=['POST'])
 def delete_quiz(quiz_link):
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
-    Question.query.filter_by(quiz_id=quiz.id).delete()  # Delete related questions
+    Question.query.filter_by(quiz_id=quiz.id).delete()
     db.session.delete(quiz)
     db.session.commit()
     flash('Quiz and related questions deleted successfully.', 'success')
@@ -308,7 +328,7 @@ def submit_quiz(quiz_link):
                     user_id=current_user.id,
                     quiz_id=attempt.quiz_id,
                     question_id=question.id,
-                    option_id=selected_option.id,  
+                    option_id=selected_option.id if selected_option else None,  
                     attempt_id=attempt.id
                 )
                 db.session.add(user_answer)
@@ -324,12 +344,11 @@ def submit_quiz(quiz_link):
     attempt.completed = True  
     db.session.commit()
 
-    flash(f'Quiz submitted successfully! Your score: {score}', 'success')
     return redirect(url_for('main.quiz_results', quiz_link=quiz_link))
 
 @main.route('/results')
 def results():
-    if not session.get('user_id'):  # Assuming you're using Flask's session to track logged in users
+    if not session.get('user_id'):
         flash('You must be logged in to submit quizzes.', 'danger')
         return redirect(url_for('main.login'))
     
@@ -340,15 +359,23 @@ def results():
 @main.route('/quiz_results/<quiz_link>')
 @login_required
 def quiz_results(quiz_link):
+    
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
     attempt = QuizAttempt.query.filter_by(user_id=current_user.id, quiz_id=quiz.id, completed=True).first_or_404()
     result = Result.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).first_or_404()
-    # Fetch user answers for detailed results, if necessary
+
     user_answers = UserAnswer.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).all()
 
-    score = result.score  # Placeholder, replace with actual logic to fetch the score
-
-    return render_template('quiz_results.html', quiz=quiz, score=score, attempt=attempt, result=result, user_answers=user_answers)
+    score = result.score 
+    current_time = datetime.now(ist_timezone)
+    
+    
+    if current_time.timestamp() > quiz.end_time.timestamp():
+        display = True
+    else:
+        display = False
+        
+    return render_template('quiz_results.html', quiz=quiz, score=score, attempt=attempt, result=result, user_answers=user_answers, display=display)
 
 @main.route('/admin/quiz_results/<quiz_link>')
 @login_required
@@ -395,6 +422,12 @@ def enter_quiz():
 @main.route('/quiz/<quiz_link>/attempt/<int:attempt_id>')
 @login_required
 def user_quiz_attempt_details(quiz_link, attempt_id):
+    if session.get('user_id'): 
+        user = User.query.filter_by(id=session.get('user_id')).first_or_404()
+        name = user.name
+    else:
+        name = None
+
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
     attempt = QuizAttempt.query.get_or_404(attempt_id)
     
@@ -404,4 +437,74 @@ def user_quiz_attempt_details(quiz_link, attempt_id):
     
     user_answers = UserAnswer.query.filter_by(attempt_id=attempt.id).all()
     result = Result.query.filter_by(user_id=attempt.user_id, quiz_id=attempt.quiz_id).first()
-    return render_template('user_quiz_attempt_details.html', quiz=quiz, attempt=attempt, user_answers=user_answers, result=result)
+    
+    current_time = datetime.now(ist_timezone)
+
+    if current_time.timestamp() > quiz.end_time.timestamp():
+        display = True
+    else:
+        display = False
+        
+    return render_template('user_quiz_attempt_details.html', quiz=quiz, attempt=attempt, user_answers=user_answers, result=result, name=name, display=display)
+
+@main.route('/edit_quiz/<quiz_link>', methods=['GET', 'POST'])
+@login_required  
+def edit_quiz(quiz_link):
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+
+    if request.method == 'POST':
+        quiz.title = request.form.get('title', '')
+        # Update other quiz settings here, if any, using request.form.get() to avoid KeyError
+        
+        # Update existing questions and options
+        for question in quiz.questions[:]:
+            # Check if this question should be removed
+            if request.form.get(f'remove_question_{question.id}'):
+                db.session.delete(question)
+                continue  # Skip the rest of the loop if question is removed
+
+            question_text_key = f'question_text_{question.id}'
+            question.text = request.form.get(question_text_key, question.text)  # Fallback to existing text if not found
+            
+            for option in question.options[:]:
+                option_text_key = f'option_text_{question.id}_{option.id}'
+                
+                # Check if this option should be removed
+                if request.form.get(f'remove_option_{option.id}'):
+                    db.session.delete(option)
+                    continue
+
+                option.text = request.form.get(option_text_key, option.text)  # Fallback to existing text if not found
+        
+        # Handle new questions and options
+        # Assuming you have a mechanism on the client-side to increment index for new_question_text_<index>
+        index = 1
+        while True:
+            new_question_key = f'new_question_text_{index}'
+            if new_question_key not in request.form:
+                break  # Exit loop if no more new questions
+            new_question_text = request.form.get(new_question_key)
+            if new_question_text:  # Only add non-empty questions
+                new_question = Question(text=new_question_text, quiz=quiz)
+                db.session.add(new_question)
+                db.session.flush()  # Assign an ID to new_question for linking options
+                
+                # Handle new options for this question
+                option_index = 1
+                while True:
+                    new_option_key = f'new_option_text_{index}_{option_index}'
+                    if new_option_key not in request.form:
+                        break  # Exit loop if no more new options for this question
+                    new_option_text = request.form.get(new_option_key)
+                    if new_option_text:  # Only add non-empty options
+                        new_option = Option(text=new_option_text, question=new_question)
+                        db.session.add(new_option)
+                    option_index += 1
+            index += 1
+        
+        db.session.commit()
+        flash('Quiz updated successfully.', 'success')
+        return redirect(url_for('main.admin_view_quiz', quiz_link=quiz.link))  # Adjust 'main.admin_view_quiz' as necessary
+
+    # GET request or initial page load
+    return render_template('edit_quiz.html', quiz=quiz)  # Ensure you have a template named edit_quiz.html

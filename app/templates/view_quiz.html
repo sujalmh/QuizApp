@@ -37,6 +37,8 @@
     <form action="{{ url_for('main.delete_quiz', quiz_link=quiz.link) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this quiz?');">
         <button type="submit" class="btn btn-danger">Delete Quiz</button>
     </form>
+    <a href="{{url_for('main.edit_quiz', quiz_link=quiz.link) }}">Edit Quiz</a>
+
     <a href="{{url_for('main.admin_quiz_results', quiz_link=quiz.link) }}">View Results</a>
         <a href="{{ url_for('main.admin_dashboard') }}">Back to Dashboard</a>
 </body>

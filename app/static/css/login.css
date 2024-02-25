@@ -10,7 +10,7 @@ html,body{
   height: 100%;
   width: 100%;
   place-items: center;
-    background: linear-gradient(to bottom, #87ceeb 0%, #ffffff 100%);
+  background: linear-gradient(to bottom, #87ceeb 0%, #ffffff 100%);
 }
 ::selection{
   background: #1a75ff;
@@ -148,7 +148,7 @@ form .field input:focus::placeholder{
   text-decoration: underline;
 }
 form .btn{
-  height: 50px;
+  height: 100%;
   width: 100%;
   border-radius: 15px;
   position: relative;
@@ -158,6 +158,7 @@ form .btn .btn-layer{
   height: 100%;
   width: 300%;
   position: absolute;
+  top: 0;
   left: -100%;
   background: -webkit-linear-gradient(right,#003366,#004080,#0059b3
 , #0073e6);
