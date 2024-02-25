@@ -47,8 +47,13 @@ def load_user(user_id):
 
 @main.route('/')
 def home():
-       
-    return render_template('index.html')
+    if session.get('user_id'): 
+        if current_user.role == 'admin':
+            return redirect(url_for('main.admin_dashboard'))
+        else:
+            return redirect(url_for('main.dashboard'))
+    else:
+        return redirect(url_for('main.login'))
 
 @main.route('/admin/register', methods=['GET', 'POST'])
 def admin_register():       
@@ -368,8 +373,7 @@ def quiz_results(quiz_link):
 
     score = result.score 
     current_time = datetime.now(ist_timezone)
-    
-    
+
     if current_time.timestamp() > quiz.end_time.timestamp():
         display = True
     else:
