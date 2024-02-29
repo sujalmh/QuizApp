@@ -191,12 +191,22 @@ def admin_dashboard():
     if current_user.role != 'admin':
         flash('Access denied: Admins only.', 'error')
         return redirect(url_for('main.login')) 
+    if session.get('user_id'): 
+        user = User.query.filter_by(id=session.get('user_id')).first_or_404()
+        name = user.name
+    else:
+        name = None
     quizzes = Quiz.query.filter_by(admin_id=current_user.id).all()
-    return render_template('admin_dashboard.html', quizzes=quizzes)
+    return render_template('admin_dashboard.html', quizzes=quizzes, name=name)
 
 @main.route('/add_quiz', methods=['GET', 'POST'])
 @login_required
 def add_quiz():
+    if session.get('user_id'): 
+        user = User.query.filter_by(id=session.get('user_id')).first_or_404()
+        name = user.name
+    else:
+        name = None
     if request.method == 'POST':
         title = request.form.get('quiz_title')
         time_limit = request.form.get('quiz_time', type=int)
@@ -255,7 +265,7 @@ def add_quiz():
 
         flash('Quiz added successfully!')
         return redirect(url_for('main.admin_dashboard'))
-    return render_template('add_quiz.html')
+    return render_template('add_quiz.html', name=name)
 
 @main.route('/attempted/<quiz_link>')
 @login_required
