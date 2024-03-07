@@ -7,7 +7,7 @@
 
     <style>
         table {
-            width: 100%;
+            width: 70%;
             border-collapse: collapse;
         }
         th, td {
@@ -39,8 +39,8 @@
         <tbody>
             {% for ar in attempts_results %}
                 <tr>
-                    <td>{{ ar.attempt.user.name }}</td>
-                    <td>{{ ar.attempt.user.usn }}</td>
+                    <td>{{ ar.result.user.name }}</td>
+                    <td>{{ ar.result.user.usn }}</td>
                     <td>{{ ar.result.score }}</td>
                     <td>
                         <a href="{{ url_for('main.quiz_attempt_details', quiz_link=quiz.link, attempt_id=ar.attempt.id) }}">View Details</a>
@@ -50,6 +50,8 @@
         </tbody>
     </table>
     
+    <a href="{{ url_for('main.download_quiz_results', quiz_link=quiz.link) }}" class="btn btn-primary">Download Results</a>
+
     <a href="{{ url_for('main.admin_dashboard') }}">Back to Admin Dashboard</a>
 </body>
 </html>

@@ -1,10 +1,12 @@
-from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort, session
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, abort, session, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, validators
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, Quiz, Question, Option, Result, UserAnswer, QuizAttempt
 from . import db, login_manager
+import csv
+from io import StringIO
 import random
 import re
 from datetime import datetime, timedelta
@@ -184,6 +186,53 @@ def dashboard():
         attempts_results.append([attempted_quiz, result])
         print([attempted_quiz, result])
     return render_template('dashboard.html', attempts_results=attempts_results, name=name)
+
+@main.route('/admin/duplicate_quiz', methods=['GET', 'POST'])
+@login_required
+def duplicate_quiz():
+    if request.method == 'POST':
+        print("abcd")
+        start_time = request.form['start_time']
+        end_time = request.form['end_time']
+        quiz_link = request.form['selected_quiz']  
+        start_time_naive  = datetime.strptime(start_time, '%Y-%m-%dT%H:%M')
+        end_time_naive = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
+        new_start_time = ist_timezone.localize(start_time_naive)
+        new_end_time = ist_timezone.localize(end_time_naive)
+        original_quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+
+        new_quiz = Quiz(
+            title=original_quiz.title,
+            time_limit=original_quiz.time_limit,
+            num_questions_display=original_quiz.num_questions_display,
+            link=generate_unique_quiz_link(),  
+            admin_id=original_quiz.admin_id,
+            start_time=new_start_time,
+            end_time=new_end_time
+        )
+
+        for original_question in original_quiz.questions:
+            new_question = Question(
+                text=original_question.text,
+                correct_answer=original_question.correct_answer,
+                quiz=new_quiz,  # Associate with the new quiz
+                points=original_question.points
+            )
+            for original_option in original_question.options:
+                new_option = Option(
+                    text=original_option.text,
+                    question=new_question  # Associate with the new question
+                )
+                db.session.add(new_option)
+        
+        db.session.add(new_quiz)
+        
+        db.session.commit()
+        return redirect(url_for('main.admin_dashboard'))
+    else:
+        quizzes = Quiz.query.all()
+        return render_template('duplicate_quiz.html', quizzes=quizzes)
+
 
 @main.route('/admin/dashboard')
 @login_required
@@ -391,6 +440,38 @@ def quiz_results(quiz_link):
         
     return render_template('quiz_results.html', quiz=quiz, score=score, attempt=attempt, result=result, user_answers=user_answers, display=display)
 
+@main.route('/admin/download_quiz_results/<quiz_link>')
+@login_required
+def download_quiz_results(quiz_link):
+    if current_user.role != 'admin':
+        flash('Access denied: Requires admin privileges.', 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
+    attempts = QuizAttempt.query.join(User).filter(QuizAttempt.quiz_id == quiz.id).order_by(User.usn).all()
+    results_mapping = {result.user_id: result for result in Result.query.join(User).filter(Result.quiz_id == quiz.id).order_by(User.usn).all()}
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['USN', 'Name', 'Score', 'Attempted'])  # Header row
+
+    for attempt in attempts:
+        result = results_mapping.get(attempt.user_id)
+        user = User.query.get(attempt.user_id)
+        row = [
+            user.usn if user else 'Unknown',
+            user.name,
+            result.score if result else 'N/A',
+            'Yes' if attempt.completed else 'No'
+        ]
+        cw.writerow(row)
+
+    response = make_response(si.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename=quiz_results_{quiz.title}.csv'
+    response.headers['Content-type'] = 'text/csv'
+    return response
+
+
 @main.route('/admin/quiz_results/<quiz_link>')
 @login_required
 def admin_quiz_results(quiz_link):
@@ -398,9 +479,18 @@ def admin_quiz_results(quiz_link):
         flash('Access denied: Requires admin privileges.', 'error')
         return redirect(url_for('main.dashboard'))
     quiz = Quiz.query.filter_by(link=quiz_link).first_or_404()
-    attempts = QuizAttempt.query.filter_by(quiz_id=quiz.id).all()
-    results = Result.query.filter_by(quiz_id=quiz.id).all()
-    attempts_results = [{'attempt': attempt, 'result': result} for attempt, result in zip(attempts, results)]
+    attempts = QuizAttempt.query.join(User).filter(QuizAttempt.quiz_id == quiz.id).order_by(User.usn).all()
+    
+    # Since results may not be in the same order as attempts, we use a dictionary to map them by user_id
+    results_mapping = {result.user_id: result for result in Result.query.join(User).filter(Result.quiz_id == quiz.id).order_by(User.usn).all()}
+    
+    # Build the attempts_results, ensuring each attempt is paired with its corresponding result
+    attempts_results = []
+    for attempt in attempts:
+        result = results_mapping.get(attempt.user_id)
+        if result:
+            attempts_results.append({'attempt': attempt, 'result': result})
+
     return render_template('admin_quiz_results.html', quiz=quiz, attempts_results=attempts_results)
 
 @main.route('/<path:path>', methods=['GET', 'POST'])
