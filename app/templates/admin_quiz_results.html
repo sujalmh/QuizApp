@@ -25,6 +25,7 @@
 <body>
     <h1>Quiz Results for "{{ quiz.title }}"</h1>
 
+    <a class="button" href="{{ url_for('main.download_quiz_results', quiz_link=quiz.link) }}">Download Results</a>
 
     <h2>Display Results</h2>
     <table>
