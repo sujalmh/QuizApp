@@ -35,12 +35,12 @@ Here are some snapshots of the Flask Quiz App to give you a quick preview of its
 
 #### **Login**
 - Simple login with username and password.  
-![Login](./snapshot/login)
+![Login](./snapshot/login.png)
 
 #### **Create Quiz**
 - Admin interface to set up quizzes, select classes, and define time limits.  
-![Create Quiz](./snapshot/addquiz)
+![Create Quiz](./snapshot/addquiz.jpeg)
 
 #### **Student Dashboard**
 - View assigned quizzes, attempt quizzes, and track performance history.  
-![Student Dashboard](./snapshot/dashboard)
+![Student Dashboard](./snapshot/dashboard.jpeg)
